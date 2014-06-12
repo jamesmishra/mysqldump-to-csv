@@ -7,26 +7,32 @@ signal(SIGPIPE, SIG_DFL)
 
 def is_insert(line):
     """
-    Returns true if the line begins a SQL insert
-    statement.
+    Returns true if the line begins a SQL insert statement.
     """
     return line.startswith('INSERT INTO') or False
 
 
 def get_values(line):
+    """
+    Returns the portion of an INSERT statement containing values
+    """
     return line.partition('` VALUES ')[2]
 
 
 def values_sanity_check(values):
+    """
+    Ensures that values from the INSERT statement meet basic checks.
+    """
     assert values
     assert values[0] == '('
     # Assertions have not been raised
     return True
 
 
-def parse_values(values):
+def parse_values(values, outfile):
     """
-    Returns the values as a list of tuples
+    Given a file handle and the raw values from a MySQL INSERT
+    statement, write the equivalent CSV to the file
     """
     latest_row = []
 
@@ -37,7 +43,7 @@ def parse_values(values):
                         strict=True
     )
 
-    writer = csv.writer(sys.stdout, quoting=csv.QUOTE_MINIMAL)
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -92,7 +98,7 @@ def main():
         if is_insert(line):
             values = get_values(line)
             if values_sanity_check(values):
-                parse_values(values)
+                parse_values(values, sys.stdout)
 
 
 if __name__ == "__main__":
