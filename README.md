@@ -17,6 +17,7 @@ Just run `python mysqldump_to_csv.py` followed by the filename of an SQL file. Y
 
 ## How It Works
 The following SQL:
+
     INSERT INTO `page` VALUES (1,0,'April','',1,0,0,0.778582929065,'20140312223924','20140312223929',4657771,20236,0),
     (2,0,'August','',0,0,0,0.123830928525,'20140312221818','20140312221822',4360163,11466,0);
 
@@ -30,4 +31,4 @@ It's not too difficult to see what is going on, but you can certainly look at th
 ## Todo
  * A rigorous series of unit tests, proving that this works on a diverse set of MySQL dump files without any side effects
  * Some more documentation
- * A solution to a bug where one column is a string ending in ")" and the next column is a string starting in "(". The current program logic suggests that the parentheses would be stripped.
+ * A solution to a bug where one column is a string ending in `)` and the next column is a string starting in `(`. The current program logic suggests that the parentheses would be stripped.
