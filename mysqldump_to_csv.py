@@ -2,6 +2,9 @@
 import fileinput
 import csv
 import sys
+
+# This prevents prematurely closed pipes from raising
+# an exception in Python
 from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL)
 
@@ -93,13 +96,15 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
-    for line in fileinput.input():
-        # Look for an INSERT statement and parse it.
-        if is_insert(line):
-            values = get_values(line)
-            if values_sanity_check(values):
-                parse_values(values, sys.stdout)
-
+    try:
+        for line in fileinput.input():
+            # Look for an INSERT statement and parse it.
+            if is_insert(line):
+                values = get_values(line)
+                if values_sanity_check(values):
+                    parse_values(values, sys.stdout)
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
