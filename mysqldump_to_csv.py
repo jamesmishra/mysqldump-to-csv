@@ -51,6 +51,7 @@ def parse_values(values, outfile):
         for column in reader_row:
             # If our current string is empty...
             if len(column) == 0:
+                latest_row.append('""')
                 continue
             # If our string starts with an open paren
             if column[0] == "(":
