@@ -69,13 +69,6 @@ def parse_values(values, outfile):
                         # Remove the close paren.
                         latest_row[-1] = latest_row[-1][:-1]
                         new_row = True
-                    # At the end of an INSERT statement, we'll
-                    # have the semicolon.
-                    # Make sure to remove the semicolon and
-                    # the close paren.
-                    elif latest_row[-1][-2:] == ");":
-                        latest_row[-1] = latest_row[-1][:-2]
-                        new_row = True
                 # If we've found a new row, write it out
                 # and begin our new one
                 if new_row:
@@ -87,6 +80,13 @@ def parse_values(values, outfile):
                     column = column[1:]
             # Add our column to the row we're working on.
             latest_row.append(column)
+        # At the end of an INSERT statement, we'll
+        # have the semicolon.
+        # Make sure to remove the semicolon and
+        # the close paren.
+        if latest_row[-1][-2:] == ");":
+            latest_row[-1] = latest_row[-1][:-2]
+            writer.writerow(latest_row)
 
 
 def main():
