@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import fileinput
+import gzip
 import csv
 import sys
 
@@ -14,6 +15,11 @@ def is_insert(line):
     """
     return line.startswith('INSERT INTO') or False
 
+def is_create(line):
+    """
+    Returns true if the line begins a SQL create table statement.
+    """
+    return line.startswith('CREATE TABLE') or False
 
 def get_values(line):
     """
@@ -31,6 +37,13 @@ def values_sanity_check(values):
     # Assertions have not been raised
     return True
 
+def write_header(values, outfile):
+    """
+    Given a file handle and a list of column names,
+    write the equivalent CSV to the file
+    """
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(values)
 
 def parse_values(values, outfile):
     """
@@ -47,6 +60,7 @@ def parse_values(values, outfile):
     )
 
     writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -97,8 +111,26 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
+
+    create = False
+    header = []
+
     try:
-        for line in fileinput.input():
+        for line in gzip.open(sys.argv[1]):  # fileinput.input():
+            if is_create(line):
+                create = True
+
+            if create:
+                if line[0] == ")":
+                    create = False
+                    write_header(header, sys.stdout)
+                    continue
+
+                fields = line.strip().split()
+
+                if fields[0][0] == '`' and fields[0][-1] == '`':
+                    header.append(fields[0][1:-1])
+
             # Look for an INSERT statement and parse it.
             if is_insert(line):
                 values = get_values(line)
