@@ -6,7 +6,22 @@ import sys
 # This prevents prematurely closed pipes from raising
 # an exception in Python
 from signal import signal, SIGPIPE, SIG_DFL
+
 signal(SIGPIPE, SIG_DFL)
+
+
+def increase_csv_field_size_limit():
+    """
+    Increase csv field size limit
+    """
+    max_size = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(max_size)
+            break
+        except:
+            max_size /= 10
+
 
 def is_insert(line):
     """
@@ -44,7 +59,7 @@ def parse_values(values, outfile):
                         escapechar='\\',
                         quotechar="'",
                         strict=True
-    )
+                        )
 
     writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
     for reader_row in reader:
@@ -97,6 +112,7 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
+    increase_csv_field_size_limit()
     try:
         for line in fileinput.input():
             # Look for an INSERT statement and parse it.
@@ -106,6 +122,7 @@ def main():
                     parse_values(values, sys.stdout)
     except KeyboardInterrupt:
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
