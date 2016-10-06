@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import fileinput
+import argparse
 import csv
 import sys
 
@@ -8,6 +9,13 @@ import sys
 from signal import signal, SIGPIPE, SIG_DFL
 
 signal(SIGPIPE, SIG_DFL)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Convert mysql dump table to csv file')
+    parser.add_argument('dump_file', metavar='s', help='Source dump sql file')
+    parser.add_argument('target_file', metavar='t', help='Target csv file')
+    return parser.parse_args()
 
 
 def increase_csv_field_size_limit():
@@ -54,14 +62,19 @@ def parse_values(values, outfile):
     """
     latest_row = []
 
-    reader = csv.reader([values], delimiter=',',
-                        doublequote=False,
-                        escapechar='\\',
-                        quotechar="'",
-                        strict=True
-                        )
+    values = values.replace("\\n", "")
 
-    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    reader = csv.reader(
+        [values],
+        delimiter=',',
+        doublequote=False,
+        escapechar='\\',
+        quotechar="'",
+        strict=True
+    )
+
+    csvfile = open(outfile, 'wb')
+    writer = csv.writer(csvfile, quoting=csv.QUOTE_MINIMAL)
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -112,14 +125,17 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
+
+    parse_args()
     increase_csv_field_size_limit()
+
     try:
-        for line in fileinput.input():
+        for line in fileinput.input(args.dump_file):
             # Look for an INSERT statement and parse it.
             if is_insert(line):
                 values = get_values(line)
                 if values_sanity_check(values):
-                    parse_values(values, sys.stdout)
+                    parse_values(values, args.target_file)
     except KeyboardInterrupt:
         sys.exit(0)
 
