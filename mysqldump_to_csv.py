@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import fileinput
 import csv
 import sys
@@ -35,7 +36,21 @@ def values_sanity_check(values):
     return True
 
 
-def parse_values(values, outfile):
+def filter_row(row, ignored_columns):
+    """
+    Drops columns from a row at specific indices
+    """
+    if len(ignored_columns) == 0:
+        return row
+
+    result_row = []
+    for index, column in enumerate(row):
+        if index not in ignored_columns:
+            result_row.append(column)
+    return result_row
+
+
+def parse_values(values, outfile, ignored_columns=[]):
     """
     Given a file handle and the raw values from a MySQL INSERT
     statement, write the equivalent CSV to the file
@@ -76,6 +91,7 @@ def parse_values(values, outfile):
                 # If we've found a new row, write it out
                 # and begin our new one
                 if new_row:
+                    latest_row = filter_row(latest_row, ignored_columns)
                     writer.writerow(latest_row)
                     latest_row = []
                 # If we're beginning a new row, eliminate the
@@ -90,6 +106,7 @@ def parse_values(values, outfile):
         # the close paren.
         if latest_row[-1][-2:] == ");":
             latest_row[-1] = latest_row[-1][:-2]
+            latest_row = filter_row(latest_row, ignored_columns)
             writer.writerow(latest_row)
 
 
@@ -97,16 +114,22 @@ def main():
     """
     Parse arguments and start the program
     """
+    # Get a list of columns to ignore
+    parser = argparse.ArgumentParser()
+    parser.add_argument('files', metavar='N', type=str, nargs='*')
+    parser.add_argument('--ignore_column', type=int, action='append')
+    args = parser.parse_args()
+    ignored_columns = args.ignore_column or []
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
     try:
-        for line in fileinput.input():
+        for line in fileinput.input(args.files):
             # Look for an INSERT statement and parse it.
             if is_insert(line):
                 values = get_values(line)
                 if values_sanity_check(values):
-                    parse_values(values, sys.stdout)
+                    parse_values(values, sys.stdout, ignored_columns)
     except KeyboardInterrupt:
         sys.exit(0)
 
