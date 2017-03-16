@@ -15,6 +15,15 @@ Just run `python mysqldump_to_csv.py` followed by the filename of an SQL file. Y
 
 `zcat dumpfile.sql.gz | python mysqldump_to_csv.py`
 
+You can optionally specify indices of columns you don't want to write to CSV. It could be useful, for example, for dropping binary fields of Wikipedia dumps.
+
+`zcat dumpfile.sql.gz | python mysqldump_to_csv.py --ignore_column 1 --ignore_column 6`
+
+or
+
+`python mysqldump_to_csv.py --ignore_column 1 --ignore_column 6 dumpfile.sql`
+
+
 ## How It Works
 The following SQL:
 
