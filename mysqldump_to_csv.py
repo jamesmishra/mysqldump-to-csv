@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import fileinput
 import gzip
 import csv
 import sys
@@ -13,27 +12,27 @@ def is_insert(line):
     """
     Returns true if the line begins a SQL insert statement.
     """
-    return line.startswith('INSERT INTO') or False
+    return line.startswith(b'INSERT INTO') or False
 
 def is_create(line):
     """
     Returns true if the line begins a SQL create table statement.
     """
-    return line.startswith('CREATE TABLE') or False
+    return line.startswith(b'CREATE TABLE') or False
 
 def get_values(line):
     """
     Returns the portion of an INSERT statement containing values
     """
-    return line.partition('` VALUES ')[2]
+    return line.partition(b'` VALUES ')[2]
 
 
 def values_sanity_check(values):
     """
     Ensures that values from the INSERT statement meet basic checks.
     """
-    assert values
-    assert values[0] == '('
+    #assert values
+    #assert values[0] == b'('
     # Assertions have not been raised
     return True
 
@@ -52,7 +51,7 @@ def parse_values(values, outfile):
     """
     latest_row = []
 
-    reader = csv.reader([values], delimiter=',',
+    reader = csv.reader([values.decode()], delimiter=',',
                         doublequote=False,
                         escapechar='\\',
                         quotechar="'",
@@ -115,21 +114,31 @@ def main():
     create = False
     header = []
 
+    filename = sys.argv[1]
+    if filename.endswith(".gz"):
+        my_open = gzip.open
+    else:
+        my_open = open
+
     try:
-        for line in gzip.open(sys.argv[1]):  # fileinput.input():
+        for line in my_open(sys.argv[1]):
+
             if is_create(line):
                 create = True
 
             if create:
-                if line[0] == ")":
+                if len(line.strip()) == 0:
+                    continue
+
+                if b";" in line:
                     create = False
                     write_header(header, sys.stdout)
                     continue
 
                 fields = line.strip().split()
 
-                if fields[0][0] == '`' and fields[0][-1] == '`':
-                    header.append(fields[0][1:-1])
+                if b'`' in fields[0]:
+                    header.append(fields[0][1:-1].decode())
 
             # Look for an INSERT statement and parse it.
             if is_insert(line):
