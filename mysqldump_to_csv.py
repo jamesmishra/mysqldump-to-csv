@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import fileinput
+import gzip
 import csv
 import sys
 
@@ -15,25 +15,37 @@ def is_insert(line):
     """
     Returns true if the line begins a SQL insert statement.
     """
-    return line.startswith('INSERT INTO') or False
+    return line.startswith(b'INSERT INTO') or False
 
+def is_create(line):
+    """
+    Returns true if the line begins a SQL create table statement.
+    """
+    return line.startswith(b'CREATE TABLE') or False
 
 def get_values(line):
     """
     Returns the portion of an INSERT statement containing values
     """
-    return line.partition('` VALUES ')[2]
+    return line.partition(b'` VALUES ')[2]
 
 
 def values_sanity_check(values):
     """
     Ensures that values from the INSERT statement meet basic checks.
     """
-    assert values
-    assert values[0] == '('
+    #assert values
+    #assert values[0] == b'('
     # Assertions have not been raised
     return True
 
+def write_header(values, outfile):
+    """
+    Given a file handle and a list of column names,
+    write the equivalent CSV to the file
+    """
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(values)
 
 def parse_values(values, outfile):
     """
@@ -42,7 +54,7 @@ def parse_values(values, outfile):
     """
     latest_row = []
 
-    reader = csv.reader([values], delimiter=',',
+    reader = csv.reader([values.decode()], delimiter=',',
                         doublequote=False,
                         escapechar='\\',
                         quotechar="'",
@@ -50,6 +62,7 @@ def parse_values(values, outfile):
     )
 
     writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -100,8 +113,36 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
+
+    create = False
+    header = []
+
+    filename = sys.argv[1]
+    if filename.endswith(".gz"):
+        my_open = gzip.open
+    else:
+        my_open = open
+
     try:
-        for line in fileinput.input():
+        for line in my_open(sys.argv[1], 'rb'):
+
+            if is_create(line):
+                create = True
+
+            if create:
+                if len(line.strip()) == 0:
+                    continue
+
+                if b";" in line:
+                    create = False
+                    write_header(header, sys.stdout)
+                    continue
+
+                fields = line.strip().split()
+
+                if b'`' in fields[0]:
+                    header.append(fields[0][1:-1].decode())
+
             # Look for an INSERT statement and parse it.
             if is_insert(line):
                 values = get_values(line)
