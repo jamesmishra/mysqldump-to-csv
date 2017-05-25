@@ -121,7 +121,7 @@ def main():
         my_open = open
 
     try:
-        for line in my_open(sys.argv[1]):
+        for line in my_open(sys.argv[1], 'rb'):
 
             if is_create(line):
                 create = True
