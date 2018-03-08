@@ -34,7 +34,7 @@ def get_create_keys(fileinput):
             reading_keys = True
             continue
 
-        elif line.startswith('  PRIMARY KEY'):
+        elif line.startswith('  PRIMARY KEY') or line.startswith('  KEY'):
             reading_keys = False
             break
 
