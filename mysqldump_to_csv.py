@@ -53,8 +53,15 @@ def values_sanity_check(values):
     # Assertions have not been raised
     return True
 
+def write_keys(keys, outfile):
+    """
+    Given a file handle and the raw keys from a MySQL CREATE
+    statement, write the equivalent CSV to the file
+    """
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(keys)
 
-def parse_values(values, outfile, keys=None):
+def parse_values(values, outfile):
     """
     Given a file handle and the raw values from a MySQL INSERT
     statement, write the equivalent CSV to the file
@@ -69,8 +76,6 @@ def parse_values(values, outfile, keys=None):
     )
 
     writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
-    if keys:
-        writer.writerow(keys)
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -123,13 +128,14 @@ def main():
     # or stdin if no args given.
     inp = fileinput.input()
     keys = get_create_keys(inp)
+    write_keys(keys, sys.stdout)
     try:
         for line in inp:
             # Look for an INSERT statement and parse it.
             if is_insert(line):
                 values = get_insert_values(line)
                 if values_sanity_check(values):
-                    parse_values(values, sys.stdout, keys)
+                    parse_values(values, sys.stdout)
     except KeyboardInterrupt:
         sys.exit(0)
 
