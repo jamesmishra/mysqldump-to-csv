@@ -17,12 +17,31 @@ def is_insert(line):
     """
     return line.startswith('INSERT INTO') or False
 
-
-def get_values(line):
+def get_insert_values(line):
     """
     Returns the portion of an INSERT statement containing values
     """
     return line.partition('` VALUES ')[2]
+
+def get_create_keys(fileinput):
+    """
+    Returns all of the value keys within the CREATE statement.
+    """
+    reading_keys = False
+    keys = []
+    for line in fileinput:
+        if line.startswith('CREATE TABLE'):
+            reading_keys = True
+            continue
+
+        elif line.startswith('  PRIMARY KEY') or line.startswith('  KEY'):
+            reading_keys = False
+            break
+
+        if reading_keys:
+            new_key = line.partition("`")[2].partition("`")[0]
+            keys.append(new_key)
+    return keys
 
 
 def values_sanity_check(values):
@@ -34,6 +53,13 @@ def values_sanity_check(values):
     # Assertions have not been raised
     return True
 
+def write_keys(keys, outfile):
+    """
+    Given a file handle and the raw keys from a MySQL CREATE
+    statement, write the equivalent CSV to the file
+    """
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(keys)
 
 def parse_values(values, outfile):
     """
@@ -100,11 +126,14 @@ def main():
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
+    inp = fileinput.input()
+    keys = get_create_keys(inp)
+    write_keys(keys, sys.stdout)
     try:
-        for line in fileinput.input():
+        for line in inp:
             # Look for an INSERT statement and parse it.
             if is_insert(line):
-                values = get_values(line)
+                values = get_insert_values(line)
                 if values_sanity_check(values):
                     parse_values(values, sys.stdout)
     except KeyboardInterrupt:
