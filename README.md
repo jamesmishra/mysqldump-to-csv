@@ -15,6 +15,18 @@ Just run `python mysqldump_to_csv.py` followed by the filename of an SQL file. Y
 
 `zcat dumpfile.sql.gz | python mysqldump_to_csv.py`
 
+Optionally allows for specifying an output directory, where each table will get its own CSV file.
+
+`
+zcat dumbfile.sql.gz | python mysqldump_to_csv.py --out-dir=./output
+`
+
+OR
+
+`
+python mysqldump_to_csv.py --out-dir=./output ./sql/mysql_dump1.sql ./sql/mysql_dump2.sql
+`
+
 ## How It Works
 The following SQL:
 

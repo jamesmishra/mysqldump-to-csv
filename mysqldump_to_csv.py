@@ -1,15 +1,26 @@
 #!/usr/bin/env python
 import fileinput
 import csv
+import os
+import re
 import sys
 
 # This prevents prematurely closed pipes from raising
 # an exception in Python
 from signal import signal, SIGPIPE, SIG_DFL
+
+from collections import defaultdict
+
+import errno
+
 signal(SIGPIPE, SIG_DFL)
 
 # allow large content in the dump
 csv.field_size_limit(sys.maxsize)
+
+OUTDIR_PARAM = '--out-dir='
+file_cache = defaultdict()
+
 
 def is_insert(line):
     """
@@ -23,6 +34,17 @@ def get_values(line):
     Returns the portion of an INSERT statement containing values
     """
     return line.partition('` VALUES ')[2]
+
+
+def get_table_filename(line, output_dir):
+    """
+    Returns the table destination for the INSERT statement
+    """
+    capture = re.match(r'^INSERT\s+INTO\s+`?(.*?)`?\s', line)
+    if capture is None:
+        return None
+
+    return os.path.join(output_dir, capture.groups()[0] + '.csv')
 
 
 def values_sanity_check(values):
@@ -49,7 +71,19 @@ def parse_values(values, outfile):
                         strict=True
     )
 
-    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    if outfile is sys.stdout:
+        writer = csv.writer(outfile,
+                            quoting=csv.QUOTE_MINIMAL,
+                            doublequote=False,
+                            escapechar='\\'
+        )
+    else:
+        writer = csv.writer(file_cache.setdefault(outfile, open(outfile, 'wb')),
+                            quoting=csv.QUOTE_MINIMAL,
+                            doublequote=False,
+                            escapechar='\\'
+        )
+
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
@@ -97,16 +131,36 @@ def main():
     """
     Parse arguments and start the program
     """
+
+    if len(sys.argv) > 1 and sys.argv[1].startswith(OUTDIR_PARAM):
+        input_files = sys.argv[2:]
+        output_dir = sys.argv[1][len(OUTDIR_PARAM):]
+        try:
+            os.makedirs(output_dir)
+        except OSError as e:
+            # If the director already exists, great.
+            # Otherwise, raise the error.
+            if e.errno != errno.EEXIST:
+                raise
+    else:
+        input_files = None  # default behavior for fileinput
+        output_dir = None
+
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
     try:
-        for line in fileinput.input():
+        for line in fileinput.input(input_files):
             # Look for an INSERT statement and parse it.
             if is_insert(line):
+                table = get_table_filename(line, output_dir) if output_dir else None
                 values = get_values(line)
                 if values_sanity_check(values):
-                    parse_values(values, sys.stdout)
+                    parse_values(values, table or sys.stdout)
+
+        for files in file_cache.itervalues():
+            files.close()
+
     except KeyboardInterrupt:
         sys.exit(0)
 
