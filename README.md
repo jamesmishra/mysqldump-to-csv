@@ -27,6 +27,11 @@ OR
 python mysqldump_to_csv.py --out-dir=./output ./sql/mysql_dump1.sql ./sql/mysql_dump2.sql
 `
 
+Optionally allows for the parameter `--col-names` to print column names at the top. This requires
+that dump files are created using the mysqldump `--complete-insert` parameter. If this is specified,
+and at least one INSERT statements do not have column names, a warning will be shown. The tool will
+continue to 
+
 ## How It Works
 The following SQL:
 
