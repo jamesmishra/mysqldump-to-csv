@@ -15,6 +15,23 @@ Just run `python mysqldump_to_csv.py` followed by the filename of an SQL file. Y
 
 `zcat dumpfile.sql.gz | python mysqldump_to_csv.py`
 
+Optionally allows for specifying an output directory, where each table will get its own CSV file.
+
+`
+zcat dumbfile.sql.gz | python mysqldump_to_csv.py --out-dir=./output
+`
+
+OR
+
+`
+python mysqldump_to_csv.py --out-dir=./output ./sql/mysql_dump1.sql ./sql/mysql_dump2.sql
+`
+
+Optionally allows for the parameter `--col-names` to print column names at the top. This requires
+that dump files are created using the mysqldump `--complete-insert` parameter. If this is specified,
+and at least one INSERT statements do not have column names, a warning will be shown. The tool will
+continue to 
+
 ## How It Works
 The following SQL:
 

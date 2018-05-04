@@ -1,15 +1,27 @@
 #!/usr/bin/env python
 import fileinput
 import csv
+import os
+import re
 import sys
 
 # This prevents prematurely closed pipes from raising
 # an exception in Python
 from signal import signal, SIGPIPE, SIG_DFL
+
+from collections import defaultdict
+
+import errno
+
 signal(SIGPIPE, SIG_DFL)
 
 # allow large content in the dump
 csv.field_size_limit(sys.maxsize)
+
+OUTDIR_PARAM = '--out-dir='
+COL_NAMES_PARAM = '--col-names'
+file_cache = defaultdict()
+
 
 def is_insert(line):
     """
@@ -22,7 +34,47 @@ def get_values(line):
     """
     Returns the portion of an INSERT statement containing values
     """
-    return line.partition('` VALUES ')[2]
+    capture = re.match(r'^INSERT\s+INTO\s+`?(.*?)`?\s*(\(.*?\))?\s*VALUES\s*(\(.*?$)', line)
+    if capture is None:
+        return None
+    return capture.groups()[2]
+
+
+def get_table_filename(line, output_dir):
+    """
+    Returns the table destination for the INSERT statement
+    """
+    capture = re.match(r'^INSERT\s+INTO\s+`?(.*?)`?\s', line)
+    if capture is None:
+        return None
+
+    return os.path.join(output_dir, capture.groups()[0] + '.csv')
+
+
+def get_column_names(line):
+    capture = re.match(r'^INSERT\s+INTO\s+`?(.*?)`?\s*(\(.*?\))\s*VALUES.*$', line)
+    if capture is None:
+        return None
+
+    cols = []
+    for value in capture.groups()[1].strip('()').split(','):
+        cols.append(value.strip('` '))
+    return cols
+
+
+def handle_col_names(line, outfile):
+    cols = get_column_names(line)
+    if cols is None:
+        if not handle_col_names.col_error_printed:
+            handle_col_names.col_error_printed = True
+            print 'Column names were not found in at least one INSERT statement, and can not be recorderd.'
+            print 'Use --complete-insert with mysqldump to have column names in your dumped SQL.'
+        return
+    if outfile not in handle_col_names.cols_written:
+        get_writer(outfile).writerow(cols)
+        handle_col_names.cols_written.add(outfile)
+handle_col_names.col_error_printed = False
+handle_col_names.cols_written = set()
 
 
 def values_sanity_check(values):
@@ -40,73 +92,95 @@ def parse_values(values, outfile):
     Given a file handle and the raw values from a MySQL INSERT
     statement, write the equivalent CSV to the file
     """
-    latest_row = []
+    cleaned_up_values = re.sub(
+        r'\)\s*,\s*\(',
+        '\n',
+        values.strip('();')
+    ).split('\n')
 
-    reader = csv.reader([values], delimiter=',',
+    reader = csv.reader(cleaned_up_values, delimiter=',',
                         doublequote=False,
                         escapechar='\\',
                         quotechar="'",
                         strict=True
     )
 
-    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer = get_writer(outfile)
+
     for reader_row in reader:
+        latest_row = []
         for column in reader_row:
             # If our current string is empty...
             if len(column) == 0 or column == 'NULL':
                 latest_row.append(chr(0))
                 continue
-            # If our string starts with an open paren
-            if column[0] == "(":
-                # Assume that this column does not begin
-                # a new row.
-                new_row = False
-                # If we've been filling out a row
-                if len(latest_row) > 0:
-                    # Check if the previous entry ended in
-                    # a close paren. If so, the row we've
-                    # been filling out has been COMPLETED
-                    # as:
-                    #    1) the previous entry ended in a )
-                    #    2) the current entry starts with a (
-                    if latest_row[-1][-1] == ")":
-                        # Remove the close paren.
-                        latest_row[-1] = latest_row[-1][:-1]
-                        new_row = True
-                # If we've found a new row, write it out
-                # and begin our new one
-                if new_row:
-                    writer.writerow(latest_row)
-                    latest_row = []
-                # If we're beginning a new row, eliminate the
-                # opening parentheses.
-                if len(latest_row) == 0:
-                    column = column[1:]
             # Add our column to the row we're working on.
             latest_row.append(column)
-        # At the end of an INSERT statement, we'll
-        # have the semicolon.
-        # Make sure to remove the semicolon and
-        # the close paren.
-        if latest_row[-1][-2:] == ");":
-            latest_row[-1] = latest_row[-1][:-2]
-            writer.writerow(latest_row)
+        writer.writerow(latest_row)
+
+
+def get_writer(outfile):
+    if outfile is sys.stdout:
+        writer = csv.writer(outfile,
+                            quoting=csv.QUOTE_MINIMAL,
+                            doublequote=False,
+                            escapechar='"'
+                            )
+    else:
+        writer = csv.writer(file_cache.setdefault(outfile, open(outfile, 'wb')),
+                            quoting=csv.QUOTE_MINIMAL,
+                            doublequote=False,
+                            escapechar='"'
+                            )
+    return writer
+
+
+def find_and_remove_param(args, param):
+    for i in xrange(len(args)):
+        if args[i].startswith(param):
+            return args.pop(i)
+    return None
 
 
 def main():
     """
     Parse arguments and start the program
     """
+    write_col_names = None
+    input_files = None
+    output_dir = None
+    if len(sys.argv) > 1:
+        output_dir_param = find_and_remove_param(sys.argv, OUTDIR_PARAM)
+        if output_dir_param is not None:
+            output_dir = output_dir_param[len(OUTDIR_PARAM):]
+            try:
+                os.makedirs(output_dir)
+            except OSError as e:
+                # If the director already exists, great.
+                # Otherwise, raise the error.
+                if e.errno != errno.EEXIST:
+                    raise
+
+        col_names_param = find_and_remove_param(sys.argv, COL_NAMES_PARAM)
+        write_col_names = col_names_param is not None
+
     # Iterate over all lines in all files
     # listed in sys.argv[1:]
     # or stdin if no args given.
     try:
-        for line in fileinput.input():
+        for line in fileinput.input(input_files):
             # Look for an INSERT statement and parse it.
             if is_insert(line):
+                table = get_table_filename(line, output_dir) if output_dir else None
+                if write_col_names:
+                    handle_col_names(line, table or sys.stdout)
                 values = get_values(line)
                 if values_sanity_check(values):
-                    parse_values(values, sys.stdout)
+                    parse_values(values, table or sys.stdout)
+
+        for files in file_cache.itervalues():
+            files.close()
+
     except KeyboardInterrupt:
         sys.exit(0)
 
