@@ -95,7 +95,7 @@ def parse_values(values, outfile):
     cleaned_up_values = re.sub(
         r'\)\s*,\s*\(',
         '\n',
-        values.strip('()')
+        values.strip('();')
     ).split('\n')
 
     reader = csv.reader(cleaned_up_values, delimiter=',',
