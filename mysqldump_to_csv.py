@@ -30,7 +30,7 @@ def values_sanity_check(values):
     Ensures that values from the INSERT statement meet basic checks.
     """
     assert values
-    assert values[0] == '('
+    assert values[0].startswith("(")
     # Assertions have not been raised
     return True
 
@@ -53,16 +53,16 @@ def parse_values(values, outfile):
     for reader_row in reader:
         for column in reader_row:
             # If our current string is empty...
-            if len(column) == 0 or column == 'NULL':
+            if not column or column == "NULL":
                 latest_row.append(chr(0))
                 continue
             # If our string starts with an open paren
-            if column[0] == "(":
+            if column.startswith("("):
                 # Assume that this column does not begin
                 # a new row.
                 new_row = False
                 # If we've been filling out a row
-                if len(latest_row) > 0:
+                if latest_row:
                     # Check if the previous entry ended in
                     # a close paren. If so, the row we've
                     # been filling out has been COMPLETED
@@ -80,7 +80,7 @@ def parse_values(values, outfile):
                     latest_row = []
                 # If we're beginning a new row, eliminate the
                 # opening parentheses.
-                if len(latest_row) == 0:
+                if not latest_row:
                     column = column[1:]
             # Add our column to the row we're working on.
             latest_row.append(column)
@@ -88,7 +88,7 @@ def parse_values(values, outfile):
         # have the semicolon.
         # Make sure to remove the semicolon and
         # the close paren.
-        if latest_row[-1][-2:] == ");":
+        if latest_row[-1].endswith(");"):
             latest_row[-1] = latest_row[-1][:-2]
             writer.writerow(latest_row)
 
