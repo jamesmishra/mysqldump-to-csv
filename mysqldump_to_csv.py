@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-import fileinput
+
 import csv
+import fileinput
 import sys
 
 # This prevents prematurely closed pipes from raising
