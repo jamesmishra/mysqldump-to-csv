@@ -7,23 +7,25 @@ import sys
 # This prevents prematurely closed pipes from raising
 # an exception in Python
 from signal import signal, SIGPIPE, SIG_DFL
+
 signal(SIGPIPE, SIG_DFL)
 
 # allow large content in the dump
 csv.field_size_limit(sys.maxsize)
 
+
 def is_insert(line):
     """
     Returns true if the line begins a SQL insert statement.
     """
-    return line.startswith('INSERT INTO') or False
+    return line.startswith("INSERT INTO") or False
 
 
 def get_values(line):
     """
     Returns the portion of an INSERT statement containing values
     """
-    return line.partition('` VALUES ')[2]
+    return line.partition("` VALUES ")[2]
 
 
 def values_sanity_check(values):
@@ -43,11 +45,13 @@ def parse_values(values, outfile):
     """
     latest_row = []
 
-    reader = csv.reader([values], delimiter=',',
-                        doublequote=False,
-                        escapechar='\\',
-                        quotechar="'",
-                        strict=True
+    reader = csv.reader(
+        [values],
+        delimiter=",",
+        doublequote=False,
+        escapechar="\\",
+        quotechar="'",
+        strict=True,
     )
 
     writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
@@ -110,6 +114,7 @@ def main():
                     parse_values(values, sys.stdout)
     except KeyboardInterrupt:
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
