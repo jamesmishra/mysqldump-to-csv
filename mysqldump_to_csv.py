@@ -9,7 +9,18 @@ from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL)
 
 # allow large content in the dump
-csv.field_size_limit(sys.maxsize)
+maxInt = sys.maxsize
+while True:
+    """
+    decrease the maxInt value by factor 10 
+    as long as the OverflowError occurs.
+    """
+    try:
+        csv.field_size_limit(maxInt)
+        break
+    except OverflowError:
+        maxInt = int(maxInt/10)
+
 
 def is_insert(line):
     """
