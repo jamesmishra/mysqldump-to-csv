@@ -34,6 +34,30 @@ def values_sanity_check(values):
     # Assertions have not been raised
     return True
 
+curr_is_header = False
+next_is_header = False
+def is_header(line):
+    global curr_is_header
+    global next_is_header
+    if line.startswith('CREATE TABLE'):
+        curr_is_header = False
+        next_is_header = True
+    elif 'ENGINE=' in line or 'KEY' in line:
+        curr_is_header = False
+        next_is_header = False
+    elif next_is_header:
+        curr_is_header = True
+        next_is_header = True
+    
+    return curr_is_header
+
+def get_header(line):
+    return line.strip().split('`')[1]
+
+def parse_headers(headers: list, outfile):
+    
+    writer = csv.writer(outfile, quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(headers)
 
 def parse_values(values, outfile):
     """
@@ -101,9 +125,18 @@ def main():
     # listed in sys.argv[1:]
     # or stdin if no args given.
     try:
+        in_header = False
+        headers = []
         for line in fileinput.input():
             # Look for an INSERT statement and parse it.
-            if is_insert(line):
+            if is_header(line):
+                in_header = True
+                header = get_header(line)
+                headers.append(header)
+            elif in_header: # current isn't header but last was (so write to stdout now)
+                parse_headers(headers, sys.stdout)
+                in_header = False
+            elif is_insert(line):
                 values = get_values(line)
                 if values_sanity_check(values):
                     parse_values(values, sys.stdout)
