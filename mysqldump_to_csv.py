@@ -42,7 +42,7 @@ def is_header(line):
     if line.startswith('CREATE TABLE'):
         curr_is_header = False
         next_is_header = True
-    elif 'ENGINE=' in line:
+    elif 'ENGINE=' in line or 'KEY' in line:
         curr_is_header = False
         next_is_header = False
     elif next_is_header:
