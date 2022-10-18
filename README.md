@@ -13,6 +13,8 @@ This short Python script takes advantage of the fact that the structure of a MyS
 ## Usage
 Just run `python mysqldump_to_csv.py` followed by the filename of an SQL file. You can specify multiple SQL files, and they will all be concatenated into one CSV file. This script can also take in SQL files from standard input, which can be useful for turning a gzipped MySQL dump into a CSV file without uncompressing the MySQL dump.
 
+`python mysqldump_to_csv.py dumpfile.sql > dump.csv`
+
 `zcat dumpfile.sql.gz | python mysqldump_to_csv.py`
 
 ## How It Works
